@@ -6,3 +6,7 @@ Due to possible commercial confilicts and copyright protection consideration, so
 
 
 Passwords for zip files are kept in a confidential manner.
+
+```C
+int a=1
+```
