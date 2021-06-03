@@ -104,37 +104,45 @@ class CameraControl:
 	
 	def unknown_command(self, argument):
 		return('WTF is that?')
-	
-with multiprocessing.connection.Listener( ('localhost', 6003), authkey = b'hwlab' ) as server_camera:
-	with server_camera.accept() as receiver:
-		camera_control = CameraControl()
-		message = None
-		command = None
-		argument = None
-		command_mapping = { 'close':camera_control.close, 'acquisition_capture':camera_control.camera.acquisition_capture, 'acquisition_live':camera_control.camera.acquisition_live, 'acquisition_fastlapse':camera_control.camera.acquisition_live, 'acquisition_stop':camera_control.camera.acquisition_stop, 'single_serial_save':camera_control.single_serial_save, 'exp_mode_reset':camera_control.exp_mode_reset, 'exposure_time_reset':camera_control.exposure_time_reset, 'camera_export':camera_control.camera_export}
-		while True:
-			if receiver.poll(timeout = 0.001):
-				message = receiver.recv()
-				command = command_mapping.get( message[0], camera_control.unknown_command )
-				argument = message[1]
-				if message[0] == 'close':
-					command(argument)
-					del camera_control
-					break
-				elif message[0] == 'acquisition_fastlapse':
-					command(argument)
-					camera_control.savepath = argument
-					camera_control.continuous_save_flag = True
-				elif message[0] == 'acquisition_stop':
-					command(argument)
-					camera_control.continuous_save_flag = False
-				elif message[0] == 'camera_export':
-					receiver.send(command(argument))
-				else:
-					command(argument)
-			if camera_control.continuous_save_flag:
-				camera_control.continuous_save()
-				# To test whether the writing speed is fast enough
-				# if camera_control.camera.circle_old != camera_control.camera.circle_index or camera_control.camera.image_old != camera_control.camera.image_index :
-					# print(f'({camera_control.camera.circle_old, camera_control.camera.image_old}) -> ({camera_control.camera.circle_index, camera_control.camera.image_index})')
-	
+
+if __name__ == '__main__':
+	with multiprocessing.connection.Listener( ('localhost', 6003), authkey = b'hwlab' ) as server_camera:
+		with server_camera.accept() as receiver:
+			camera_control = CameraControl()
+			message = None
+			command = None
+			argument = None
+			command_mapping = { 'close':camera_control.close, \
+					'acquisition_capture':camera_control.camera.acquisition_capture, \
+					'acquisition_live':camera_control.camera.acquisition_live, \
+					'acquisition_fastlapse':camera_control.camera.acquisition_live, \
+					'acquisition_stop':camera_control.camera.acquisition_stop, \
+					'single_serial_save':camera_control.single_serial_save, \
+					'exp_mode_reset':camera_control.exp_mode_reset, \
+					'exposure_time_reset':camera_control.exposure_time_reset, \
+					'camera_export':camera_control.camera_export}
+			while True:
+				if receiver.poll(timeout = 0.001):
+					message = receiver.recv()
+					command = command_mapping.get( message[0], camera_control.unknown_command )
+					argument = message[1]
+					if message[0] == 'close':
+						command(argument)
+						del camera_control
+						break
+					elif message[0] == 'acquisition_fastlapse':
+						command(argument)
+						camera_control.savepath = argument
+						camera_control.continuous_save_flag = True
+					elif message[0] == 'acquisition_stop':
+						command(argument)
+						camera_control.continuous_save_flag = False
+					elif message[0] == 'camera_export':
+						receiver.send(command(argument))
+					else:
+						command(argument)
+				if camera_control.continuous_save_flag:
+					camera_control.continuous_save()
+					# To test whether the writing speed is fast enough
+					# if camera_control.camera.circle_old != camera_control.camera.circle_index or camera_control.camera.image_old != camera_control.camera.image_index :
+						# print(f'({camera_control.camera.circle_old, camera_control.camera.image_old}) -> ({camera_control.camera.circle_index, camera_control.camera.image_index})')

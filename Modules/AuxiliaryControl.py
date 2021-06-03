@@ -44,6 +44,7 @@ class AuxiliaryControl:
 	# change_threshold = 0.001 # mm
 	
 	def __init__(self):
+		#TODO: require better logic to connect motor
 		self.client_motor = multiprocessing.connection.Client( ('localhost', 6101), authkey = b'hwlab' )
 		self.piezo = Stages.PIPiezo()
 		self.stage = Stages.ASIStage()
@@ -126,32 +127,36 @@ class AuxiliaryControl:
 	
 	def unknown_command(self, argument):
 		return('WTF is that?')
-	
-with multiprocessing.connection.Listener( ('localhost', 6002), authkey = b'hwlab' ) as server_auxliary:
-	with server_auxliary.accept() as receiver:
-		control = AuxiliaryControl()
-		message = None
-		command = None
-		argument = None
-		command_mapping = { 'close':control.close, 'status':control.status_export, 'piezo_stack_prepare':control.piezo_stack_prepare, 'piezo_stack_finish':control.piezo_stack_finish, 'refresh_targets':control.read_nymphscope }
-		while True:
-			# refresh hardware variables
-			control.status_hardware_update()
-			if receiver.poll(timeout = 0.05):
-				message = receiver.recv()
-				command = command_mapping.get( message[0], control.unknown_command )
-				argument = message[1]
-				if message[0] == 'close':
-					command(argument)
-					del control
-					break
-				elif message[0] == 'refresh_targets' or message[0] == 'piezo_stack_finish':
-					command(argument)
+
+if __name__ == '__main__':
+	with multiprocessing.connection.Listener( ('localhost', 6002), authkey = b'hwlab' ) as server_auxliary:
+		with server_auxliary.accept() as receiver:
+			control = AuxiliaryControl()
+			message = None
+			command = None
+			argument = None
+			command_mapping = { 'close':control.close, 'status':control.status_export, \
+					'piezo_stack_prepare':control.piezo_stack_prepare, \
+					'piezo_stack_finish':control.piezo_stack_finish, \
+					'refresh_targets':control.read_nymphscope }
+			while True:
+				# refresh hardware variables
+				control.status_hardware_update()
+				if receiver.poll(timeout = 0.05):
+					message = receiver.recv()
+					command = command_mapping.get( message[0], control.unknown_command )
+					argument = message[1]
+					if message[0] == 'close':
+						command(argument)
+						del control
+						break
+					elif message[0] == 'refresh_targets' or message[0] == 'piezo_stack_finish':
+						command(argument)
+						control.control_all()
+					else:
+						receiver.send(command(argument))
+				if control.read_arduino():
+					# Stick movement is detected by arduino
 					control.control_all()
-				else:
-					receiver.send(command(argument))
-			if control.read_arduino():
-				# Stick movement is detected by arduino
-				control.control_all()
-			# time.sleep(0.002)
-			# the refresh rate should be longer than the arduino serial transmission sequence
+				# time.sleep(0.002)
+				# the refresh rate should be longer than the arduino serial transmission sequence

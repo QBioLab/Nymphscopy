@@ -182,24 +182,25 @@ class ConfocalBoard:
 	
 	def unknown_command(self, argument):
 		return('WTF is that?')
-	
-with multiprocessing.connection.Listener( ('localhost', 6000), authkey = b'hwlab' ) as server_confocal:
-	with server_confocal.accept() as receiver:
-		confocal = ConfocalBoard()
-		message = None
-		command = None
-		argument = None
-		command_mapping = { 'close':confocal.close, 'pinhole':confocal.pinhole, 'filter_wheel':confocal.filter_wheel, 'confocal_mark_prepare':confocal.confocal_mark_prepare, 'confocal_mark':confocal.confocal_mark, 'stop_mark':confocal.stop_mark, 'mark_speed_reset':confocal.mark_speed_reset, 'laser_on_reset':confocal.laser_on_reset, 'laser_power_reset':confocal.laser_power_reset, 'status':confocal.status_export }
-		while True:
-			if receiver.poll(timeout = 0.001):
-				message = receiver.recv()
-				command = command_mapping.get( message[0], confocal.unknown_command )
-				argument = message[1]
-				if message[0] == 'close':
-					command(argument)
-					del confocal
-					break
-				elif message[0] == 'status' or message[0] == 'confocal_mark_prepare':
-					receiver.send(command(argument))
-				else:
-					command(argument)
+
+if __name__ == '__main__':
+	with multiprocessing.connection.Listener( ('localhost', 6000), authkey = b'hwlab' ) as server_confocal:
+		with server_confocal.accept() as receiver:
+			confocal = ConfocalBoard()
+			message = None
+			command = None
+			argument = None
+			command_mapping = { 'close':confocal.close, 'pinhole':confocal.pinhole, 'filter_wheel':confocal.filter_wheel, 'confocal_mark_prepare':confocal.confocal_mark_prepare, 'confocal_mark':confocal.confocal_mark, 'stop_mark':confocal.stop_mark, 'mark_speed_reset':confocal.mark_speed_reset, 'laser_on_reset':confocal.laser_on_reset, 'laser_power_reset':confocal.laser_power_reset, 'status':confocal.status_export }
+			while True:
+				if receiver.poll(timeout = 0.001):
+					message = receiver.recv()
+					command = command_mapping.get( message[0], confocal.unknown_command )
+					argument = message[1]
+					if message[0] == 'close':
+						command(argument)
+						del confocal
+						break
+					elif message[0] == 'status' or message[0] == 'confocal_mark_prepare':
+						receiver.send(command(argument))
+					else:
+						command(argument)

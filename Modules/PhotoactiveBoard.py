@@ -73,7 +73,10 @@ class PhotoactiveBoard:
 		dotSpace = 0.1 #点间距,单位(mm))
 		
 		for index in range(10): #层号
-			self.CSC.SetMarkParameter(index, markCounts, isBitmap, markSpeed, jumpSpeed, jumpDelay, polygonDelay, laserOnDelay, laserOffDelay, polygonKillerTime, laserFrequency, current, firstPulseKillerLength, pulseWidth, firstPulseWidth, incrementStep ,dotSpace)
+			self.CSC.SetMarkParameter(index, markCounts, isBitmap, markSpeed, \
+					jumpSpeed, jumpDelay, polygonDelay, laserOnDelay, laserOffDelay,\
+					polygonKillerTime, laserFrequency, current, firstPulseKillerLength,\
+					pulseWidth, firstPulseWidth, incrementStep ,dotSpace)
 		
 		CSC_dll.DownloadMarkParameters()
 		CSC_dll.SetFirstMarkParameter(0)
@@ -160,38 +163,42 @@ class PhotoactiveBoard:
 	def unknown_command(self, argument):
 		return('WTF is that?')
 	
-with multiprocessing.connection.Listener( ('localhost', 6001), authkey = b'hwlab' ) as server_photoactive:
-	with server_photoactive.accept() as receiver_photoactive:
-		with multiprocessing.connection.Listener( ('localhost', 6101), authkey = b'hwlab' ) as server_motor:
-			with server_motor.accept() as receiver_motor:
-				photoactive = PhotoactiveBoard()
-				message = None
-				command = None
-				argument = None
-				command_mapping = { 'close':photoactive.close, 'laser_mark':photoactive.laser_mark, 'stop_mark':photoactive.stop_mark, 'mark_speed_reset':photoactive.mark_speed_reset, 'motor_move_to':photoactive.motor_move_to, 'motor_move_by':photoactive.motor_move_by, 'status':photoactive.status_export}
-				while True:
-					if not(receiver_motor.closed):
-						if receiver_motor.poll(timeout = 0.001):
-						# close by AuxiliaryVontrol, before receiver_photoactive
-							message = receiver_motor.recv()
+if __name__ == '__main__':
+	with multiprocessing.connection.Listener( ('localhost', 6001), authkey = b'hwlab' ) as server_photoactive:
+		with server_photoactive.accept() as receiver_photoactive:
+			with multiprocessing.connection.Listener( ('localhost', 6101), authkey = b'hwlab' ) as server_motor:
+				with server_motor.accept() as receiver_motor:
+					photoactive = PhotoactiveBoard()
+					message = None
+					command = None
+					argument = None
+					command_mapping = { 'close':photoactive.close, 'laser_mark':photoactive.laser_mark, \
+							'stop_mark':photoactive.stop_mark, 'mark_speed_reset':photoactive.mark_speed_reset, \
+							'motor_move_to':photoactive.motor_move_to, 'motor_move_by':photoactive.motor_move_by, \
+							'status':photoactive.status_export}
+					while True:
+						if not(receiver_motor.closed):
+							if receiver_motor.poll(timeout = 0.001):
+							# close by AuxiliaryVontrol, before receiver_photoactive
+								message = receiver_motor.recv()
+								command = command_mapping.get( message[0], photoactive.unknown_command )
+								argument = message[1]
+								if message[0] == 'close':
+									receiver_motor.close()
+								elif message[0] == 'status':
+									receiver_motor.send(command(argument))
+								else:
+									command(argument)
+						if receiver_photoactive.poll(timeout = 0.001):
+						# close by Nymphscope
+							message = receiver_photoactive.recv()
 							command = command_mapping.get( message[0], photoactive.unknown_command )
 							argument = message[1]
 							if message[0] == 'close':
-								receiver_motor.close()
+								command(argument)
+								del photoactive
+								break
 							elif message[0] == 'status':
-								receiver_motor.send(command(argument))
+								receiver_photoactive.send(command(argument))
 							else:
 								command(argument)
-					if receiver_photoactive.poll(timeout = 0.001):
-					# close by Nymphscope
-						message = receiver_photoactive.recv()
-						command = command_mapping.get( message[0], photoactive.unknown_command )
-						argument = message[1]
-						if message[0] == 'close':
-							command(argument)
-							del photoactive
-							break
-						elif message[0] == 'status':
-							receiver_photoactive.send(command(argument))
-						else:
-							command(argument)
